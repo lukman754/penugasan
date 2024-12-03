@@ -31,14 +31,23 @@ def plot_optimal_assignment(cost_matrix, row_ind, col_ind):
     plt.tight_layout()
     return plt
 
-def calculate_reductions(cost_matrix):
+def calculate_reduced_matrix(cost_matrix):
     """
-    Menghitung pengurangan per baris dan kolom
+    Menghitung matriks reduksi dengan mengurangkan minimum dari setiap baris dan kolom
     """
-    row_reductions = np.max(cost_matrix, axis=1) - np.min(cost_matrix, axis=1)
-    col_reductions = np.max(cost_matrix, axis=0) - np.min(cost_matrix, axis=0)
+    # Kurangi minimum dari setiap baris
+    row_reduced_matrix = cost_matrix.copy()
+    for i in range(row_reduced_matrix.shape[0]):
+        row_min = np.min(row_reduced_matrix[i, :])
+        row_reduced_matrix[i, :] -= row_min
     
-    return row_reductions, col_reductions
+    # Kurangi minimum dari setiap kolom
+    col_reduced_matrix = row_reduced_matrix.copy()
+    for j in range(col_reduced_matrix.shape[1]):
+        col_min = np.min(col_reduced_matrix[:, j])
+        col_reduced_matrix[:, j] -= col_min
+    
+    return col_reduced_matrix
 
 def main():
     st.title("📊 Kalkulator Penugasan Maksimal")
@@ -85,6 +94,18 @@ def main():
             )
             st.dataframe(df)
             
+            # Hitung matriks reduksi
+            reduced_matrix = calculate_reduced_matrix(cost_matrix)
+            
+            # Tampilkan matriks reduksi
+            st.subheader("Matriks Reduksi")
+            reduced_df = pd.DataFrame(
+                reduced_matrix, 
+                columns=[f'Tugas {j+1}' for j in range(num_tasks)],
+                index=[f'Pekerja {i+1}' for i in range(num_workers)]
+            )
+            st.dataframe(reduced_df)
+            
             # Tampilkan hasil
             st.subheader("Hasil Penugasan")
             results = []
@@ -100,26 +121,6 @@ def main():
             
             # Total keuntungan
             st.metric("Total Keuntungan Maksimal", f"{total_profit:.2f}")
-            
-            # Hitung dan tampilkan pengurangan
-            st.subheader("Pengurangan Nilai")
-            row_reductions, col_reductions = calculate_reductions(cost_matrix)
-            
-            # Tampilkan pengurangan per baris
-            st.write("Pengurangan per Baris:")
-            row_reduction_df = pd.DataFrame({
-                'Pekerja': [f'Pekerja {i+1}' for i in range(num_workers)],
-                'Pengurangan': row_reductions
-            })
-            st.dataframe(row_reduction_df)
-            
-            # Tampilkan pengurangan per kolom
-            st.write("Pengurangan per Kolom:")
-            col_reduction_df = pd.DataFrame({
-                'Tugas': [f'Tugas {j+1}' for j in range(num_tasks)],
-                'Pengurangan': col_reductions
-            })
-            st.dataframe(col_reduction_df)
             
             # Visualisasi matriks dengan garis optimal
             st.subheader("Visualisasi Penugasan Optimal")
