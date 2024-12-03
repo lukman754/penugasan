@@ -91,6 +91,65 @@ def hungarian_method(cost_matrix):
         'col_covered': col_covered
     })
 
+    # Tabel 5: Penyesuaian Matriks
+    def adjust_matrix(matrix, row_covered, col_covered):
+        n = matrix.shape[0]
+        # Temukan nilai terkecil yang tidak tertutup
+        uncovered_min = np.inf
+        for r in range(n):
+            for c in range(n):
+                if not row_covered[r] and not col_covered[c]:
+                    uncovered_min = min(uncovered_min, matrix[r, c])
+        
+        # Kurangi nilai yang tidak tertutup
+        adjusted_matrix = matrix.copy()
+        for r in range(n):
+            for c in range(n):
+                if not row_covered[r] and not col_covered[c]:
+                    adjusted_matrix[r, c] -= uncovered_min
+                elif row_covered[r] and col_covered[c]:
+                    adjusted_matrix[r, c] += uncovered_min
+        
+        return adjusted_matrix, uncovered_min
+
+    adjusted_matrix, adjustment_value = adjust_matrix(row_reduced_matrix, row_covered, col_covered)
+    
+    steps.append({
+        'title': 'Tabel 5: Penyesuaian Matriks',
+        'matrix': adjusted_matrix,
+        'adjustment_value': adjustment_value,
+        'row_covered': row_covered,
+        'col_covered': col_covered
+    })
+
+    # Tabel 6: Pencarian Penugasan Optimal
+    def find_optimal_assignment(matrix):
+        n = matrix.shape[0]
+        assignment = []
+        used_rows = set()
+        used_cols = set()
+
+        # Cari penugasan optimal
+        for _ in range(n):
+            zero_positions = np.argwhere(np.isclose(matrix, 0))
+            for pos in zero_positions:
+                row, col = pos
+                if row not in used_rows and col not in used_cols:
+                    assignment.append((row, col))
+                    used_rows.add(row)
+                    used_cols.add(col)
+                    break
+        
+        return assignment
+
+    optimal_assignment = find_optimal_assignment(adjusted_matrix)
+    
+    steps.append({
+        'title': 'Tabel 6: Penugasan Optimal',
+        'matrix': adjusted_matrix,
+        'assignment': optimal_assignment
+    })
+
     return steps
 
 def visualize_matrix_with_lines(matrix, lines, row_covered, col_covered):
@@ -109,6 +168,13 @@ def visualize_matrix_with_lines(matrix, lines, row_covered, col_covered):
     
     plt.title('Matriks dengan Garis Penutup')
     return plt
+
+def calculate_total_cost(original_matrix, assignment):
+    """
+    Menghitung total biaya/keuntungan dari penugasan optimal
+    """
+    total_cost = sum(original_matrix[row][col] for row, col in assignment)
+    return total_cost
 
 def main():
     st.title("🔢 Metode Hungarian (Penugasan Optimal)")
@@ -174,6 +240,23 @@ def main():
                     step['col_covered']
                 )
                 st.pyplot(optimal_plot)
+            
+            if step['title'] == 'Tabel 5: Penyesuaian Matriks':
+                st.write(f"Nilai Penyesuaian: {step['adjustment_value']}")
+            
+            if step['title'] == 'Tabel 6: Penugasan Optimal':
+                # Tampilkan penugasan optimal
+                st.subheader("Hasil Penugasan Optimal")
+                assignment_text = []
+                for row, col in step['assignment']:
+                    assignment_text.append(f"Baris {row+1} → Kolom {col+1}")
+                    st.write(f"Baris {row+1} ditugaskan ke Kolom {col+1} (Nilai: {matrix[row][col]})")
+                
+                # Hitung total biaya/keuntungan
+                total_cost = calculate_total_cost(matrix, step['assignment'])
+                st.subheader("Ringkasan")
+                st.write("Total Biaya/Keuntungan:", total_cost)
+                st.success(" | ".join(assignment_text))
 
 if __name__ == "__main__":
     main()
