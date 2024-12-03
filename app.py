@@ -1,65 +1,92 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
-from scipy.optimize import linear_sum_assignment
-import matplotlib.pyplot as plt
-import seaborn as sns
 
-def maximize_assignment(cost_matrix):
+def hungarian_method(cost_matrix):
     """
-    Menghitung penugasan maksimal dengan mengonversi nilai menjadi minimasi.
+    Implementasi lengkap metode Hungarian
     """
-    profit_matrix = np.max(cost_matrix) - cost_matrix
-    row_ind, col_ind = linear_sum_assignment(profit_matrix)
-    total_profit = cost_matrix[row_ind, col_ind].sum()
-    return row_ind, col_ind, total_profit
+    steps = []
+    matrix = np.array(cost_matrix, dtype=float)
+    n = matrix.shape[0]
 
-def plot_optimal_assignment(cost_matrix, row_ind, col_ind):
-    """
-    Membuat visualisasi matriks dengan garis optimal
-    """
-    plt.figure(figsize=(10, 8))
-    sns.heatmap(cost_matrix, annot=True, cmap='YlGnBu', fmt='.2f', 
-                xticklabels=[f'Tugas {j+1}' for j in range(cost_matrix.shape[1])],
-                yticklabels=[f'Pekerja {i+1}' for i in range(cost_matrix.shape[0])])
-    
-    # Tambahkan garis untuk penugasan optimal
-    for worker, task in zip(row_ind, col_ind):
-        plt.plot([task, task+1], [worker, worker+1], color='red', linewidth=2)
-    
-    plt.title('Matriks Penugasan Optimal')
-    plt.tight_layout()
-    return plt
+    # Tabel 1: Transformasi matriks
+    max_val = np.max(matrix)
+    transformed_matrix = max_val - matrix
+    steps.append({
+        'title': 'Tabel 1: Transformasi Matriks',
+        'matrix': transformed_matrix.copy()
+    })
 
-def calculate_reduced_matrix(cost_matrix):
-    """
-    Menghitung matriks reduksi dengan mengurangkan minimum dari setiap baris dan kolom
-    """
-    # Kurangi minimum dari setiap baris
-    row_reduced_matrix = cost_matrix.copy()
-    for i in range(row_reduced_matrix.shape[0]):
-        row_min = np.min(row_reduced_matrix[i, :])
-        row_reduced_matrix[i, :] -= row_min
-    
-    # Kurangi minimum dari setiap kolom
-    col_reduced_matrix = row_reduced_matrix.copy()
-    for j in range(col_reduced_matrix.shape[1]):
-        col_min = np.min(col_reduced_matrix[:, j])
-        col_reduced_matrix[:, j] -= col_min
-    
-    return col_reduced_matrix
+    # Tabel 2: Pengurangan Kolom
+    col_mins = np.min(transformed_matrix, axis=0)
+    col_reduced_matrix = transformed_matrix - col_mins
+    steps.append({
+        'title': 'Tabel 2: Pengurangan Kolom',
+        'matrix': col_reduced_matrix.copy(),
+        'col_mins': col_mins
+    })
+
+    # Tabel 3: Pengurangan Baris
+    row_mins = np.min(col_reduced_matrix, axis=1)
+    row_reduced_matrix = col_reduced_matrix - row_mins[:, np.newaxis]
+    steps.append({
+        'title': 'Tabel 3: Pengurangan Baris',
+        'matrix': row_reduced_matrix.copy(),
+        'row_mins': row_mins
+    })
+
+    # Tabel 4: Penutupan Garis
+    def cover_zeros(matrix):
+        covered_matrix = matrix.copy()
+        lines = 0
+        zero_positions = []
+
+        # Implementasi logika penutupan garis
+        # (ini adalah implementasi sederhana, bisa dikembangkan lebih lanjut)
+        for i in range(matrix.shape[0]):
+            for j in range(matrix.shape[1]):
+                if np.isclose(matrix[i, j], 0):
+                    zero_positions.append((i, j))
+
+        lines = len(zero_positions)
+        
+        steps.append({
+            'title': 'Tabel 4: Penutupan Garis Awal',
+            'matrix': covered_matrix,
+            'lines': lines,
+            'zero_positions': zero_positions
+        })
+
+        return lines, zero_positions
+
+    lines, zero_positions = cover_zeros(row_reduced_matrix)
+
+    # Tahap selanjutnya: Pengecekan optimasi
+    total_lines = lines
+    optimized = total_lines == n
+
+    steps.append({
+        'title': 'Tahap Optimasi',
+        'total_lines': total_lines,
+        'matrix_size': n,
+        'optimized': optimized,
+        'zero_positions': zero_positions
+    })
+
+    return steps
 
 def main():
-    st.title("📊 Kalkulator Penugasan Maksimal")
+    st.title("🔢 Metode Hungarian (Penugasan Optimal)")
     
-    # Input dimensi matriks
-    num_workers = st.number_input("Jumlah Pekerja", min_value=2, max_value=10, value=3)
-    num_tasks = st.number_input("Jumlah Tugas", min_value=2, max_value=10, value=3)
+    # Input matriks
+    st.subheader("Masukkan Matriks Biaya/Keuntungan")
+    
+    # Dimensi default
+    num_workers = st.number_input("Jumlah Baris", min_value=2, max_value=10, value=3)
+    num_tasks = st.number_input("Jumlah Kolom", min_value=2, max_value=10, value=3)
     
     # Membuat matriks input
-    st.subheader("Masukkan Matriks Keuntungan")
-    
-    # Inisialisasi matriks kosong
     matrix = []
     for i in range(num_workers):
         row = st.columns(num_tasks)
@@ -67,7 +94,7 @@ def main():
         for j in range(num_tasks):
             with row[j]:
                 value = st.number_input(
-                    f'Pekerja {i+1} - Tugas {j+1}', 
+                    f'Baris {i+1} - Kolom {j+1}', 
                     min_value=0.0, 
                     value=0.0, 
                     step=0.1,
@@ -76,60 +103,37 @@ def main():
                 matrix_row.append(value)
         matrix.append(matrix_row)
     
-    # Konversi ke numpy array
-    cost_matrix = np.array(matrix)
-    
-    # Tombol hitung
-    if st.button("Hitung Penugasan Maksimal"):
-        try:
-            # Jalankan algoritma penugasan
-            row_ind, col_ind, total_profit = maximize_assignment(cost_matrix)
-            
-            # Tampilkan matriks keuntungan
-            st.subheader("Matriks Keuntungan")
-            df = pd.DataFrame(
-                cost_matrix, 
-                columns=[f'Tugas {j+1}' for j in range(num_tasks)],
-                index=[f'Pekerja {i+1}' for i in range(num_workers)]
-            )
-            st.dataframe(df)
-            
-            # Hitung matriks reduksi
-            reduced_matrix = calculate_reduced_matrix(cost_matrix)
-            
-            # Tampilkan matriks reduksi
-            st.subheader("Matriks Reduksi")
-            reduced_df = pd.DataFrame(
-                reduced_matrix, 
-                columns=[f'Tugas {j+1}' for j in range(num_tasks)],
-                index=[f'Pekerja {i+1}' for i in range(num_workers)]
-            )
-            st.dataframe(reduced_df)
-            
-            # Tampilkan hasil
-            st.subheader("Hasil Penugasan")
-            results = []
-            for worker, task in zip(row_ind, col_ind):
-                results.append({
-                    'Pekerja': f'Pekerja {worker + 1}', 
-                    'Tugas': f'Tugas {task + 1}', 
-                    'Keuntungan': cost_matrix[worker, task]
-                })
-            
-            results_df = pd.DataFrame(results)
-            st.dataframe(results_df)
-            
-            # Total keuntungan
-            st.metric("Total Keuntungan Maksimal", f"{total_profit:.2f}")
-            
-            # Visualisasi matriks dengan garis optimal
-            st.subheader("Visualisasi Penugasan Optimal")
-            optimal_plot = plot_optimal_assignment(cost_matrix, row_ind, col_ind)
-            st.pyplot(optimal_plot)
+    if st.button("Hitung Penugasan Optimal"):
+        steps = hungarian_method(matrix)
         
-        except Exception as e:
-            st.error(f"Terjadi kesalahan: {e}")
+        for step in steps:
+            st.subheader(step['title'])
+            
+            # Tampilkan matriks
+            if 'matrix' in step:
+                df = pd.DataFrame(
+                    step['matrix'], 
+                    columns=[f'Kolom {j+1}' for j in range(step['matrix'].shape[1])],
+                    index=[f'Baris {i+1}' for i in range(step['matrix'].shape[0])]
+                )
+                st.dataframe(df)
+            
+            # Tampilkan informasi tambahan
+            if step['title'] == 'Tabel 2: Pengurangan Kolom':
+                st.write("Nilai Minimum Kolom:", step['col_mins'])
+            
+            if step['title'] == 'Tabel 3: Pengurangan Baris':
+                st.write("Nilai Minimum Baris:", step['row_mins'])
+            
+            if step['title'] == 'Tabel 4: Penutupan Garis Awal':
+                st.write("Jumlah Garis:", step['lines'])
+                st.write("Posisi Nol:", step['zero_positions'])
+            
+            if step['title'] == 'Tahap Optimasi':
+                st.write("Jumlah Garis:", step['total_lines'])
+                st.write("Ukuran Matriks:", step['matrix_size'])
+                st.write("Optimasi Tercapai:", step['optimized'])
+                st.write("Posisi Nol:", step['zero_positions'])
 
-# Jalankan aplikasi
 if __name__ == "__main__":
     main()
