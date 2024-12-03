@@ -50,44 +50,44 @@ def hungarian_method(cost_matrix):
 
     # Tabel 5: Penutupan Garis Optimal
     def cover_zeros(matrix):
-    n = matrix.shape[0]
-    zero_positions = np.argwhere(np.isclose(matrix, 0))
-    
-    # Inisialisasi
-    row_covered = np.zeros(n, dtype=bool)
-    col_covered = np.zeros(n, dtype=bool)
-    lines = []
+        n = matrix.shape[0]
+        zero_positions = np.argwhere(np.isclose(matrix, 0))
+        
+        # Inisialisasi
+        row_covered = np.zeros(n, dtype=bool)
+        col_covered = np.zeros(n, dtype=bool)
+        lines = []
 
-    # Hitung zero di setiap baris dan kolom
-    zero_counts_rows = np.sum(np.isclose(matrix, 0), axis=1)
-    zero_counts_cols = np.sum(np.isclose(matrix, 0), axis=0)
+        # Hitung zero di setiap baris dan kolom
+        zero_counts_rows = np.sum(np.isclose(matrix, 0), axis=1)
+        zero_counts_cols = np.sum(np.isclose(matrix, 0), axis=0)
 
-    # Prioritaskan baris/kolom dengan zero
-    while len(lines) < n:
-        # Cari baris atau kolom dengan zero yang belum tertutup
-        uncovered_zero_rows = np.where((~row_covered) & (zero_counts_rows > 0))[0]
-        uncovered_zero_cols = np.where((~col_covered) & (zero_counts_cols > 0))[0]
+        # Prioritaskan baris/kolom dengan zero
+        while len(lines) < n:
+            # Cari baris atau kolom dengan zero yang belum tertutup
+            uncovered_zero_rows = np.where((~row_covered) & (zero_counts_rows > 0))[0]
+            uncovered_zero_cols = np.where((~col_covered) & (zero_counts_cols > 0))[0]
 
-        if uncovered_zero_rows.size > 0:
-            row = uncovered_zero_rows[0]
-            lines.append(('row', row))
-            row_covered[row] = True
-        elif uncovered_zero_cols.size > 0:
-            col = uncovered_zero_cols[0]
-            lines.append(('col', col))
-            col_covered[col] = True
-        else:
-            # Jika tidak ada zero lagi, pilih baris/kolom yang belum tertutup
-            if not np.all(row_covered):
-                row = np.where(~row_covered)[0][0]
+            if uncovered_zero_rows.size > 0:
+                row = uncovered_zero_rows[0]
                 lines.append(('row', row))
                 row_covered[row] = True
-            elif not np.all(col_covered):
-                col = np.where(~col_covered)[0][0]
+            elif uncovered_zero_cols.size > 0:
+                col = uncovered_zero_cols[0]
                 lines.append(('col', col))
                 col_covered[col] = True
+            else:
+                # Jika tidak ada zero lagi, pilih baris/kolom yang belum tertutup
+                if not np.all(row_covered):
+                    row = np.where(~row_covered)[0][0]
+                    lines.append(('row', row))
+                    row_covered[row] = True
+                elif not np.all(col_covered):
+                    col = np.where(~col_covered)[0][0]
+                    lines.append(('col', col))
+                    col_covered[col] = True
 
-    return lines, row_covered, col_covered
+        return lines, row_covered, col_covered
 
     lines, row_covered, col_covered = cover_zeros(row_reduced_matrix)
     
@@ -99,63 +99,18 @@ def hungarian_method(cost_matrix):
         'col_covered': col_covered
     })
 
-    # Periksa apakah penugasan sudah optimal
-    total_lines = sum(1 for _ in lines)
-    is_optimal = total_lines == n
+    # Tambahkan perhitungan total nilai
+    total_value = sum(cost_matrix[row][col] for row, col in [(l[1], l[1]) for l in lines if l[0] == 'row'])
 
-    # Tabel 6: Penyesuaian Jika Belum Optimal
-    if not is_optimal:
-        # Cari nilai terkecil yang tidak tertutup garis
-        uncovered_min = np.inf
-        for r in range(n):
-            for c in range(n):
-                if not row_covered[r] and not col_covered[c]:
-                    uncovered_min = min(uncovered_min, row_reduced_matrix[r, c])
-        
-        # Kurangi nilai yang tidak tertutup
-        adjusted_matrix = row_reduced_matrix.copy()
-        for r in range(n):
-            for c in range(n):
-                if not row_covered[r] and not col_covered[c]:
-                    adjusted_matrix[r, c] -= uncovered_min
-                elif row_covered[r] and col_covered[c]:
-                    adjusted_matrix[r, c] += uncovered_min
-        
-        steps.append({
-            'title': 'Tabel 6: Penyesuaian Matriks',
-            'matrix': adjusted_matrix,
-            'uncovered_min': uncovered_min
-        })
-    else:
-        adjusted_matrix = row_reduced_matrix
-
-    # Tabel 7: Penugasan Optimal
-    def find_optimal_assignment(matrix):
-        n = matrix.shape[0]
-        assignment = []
-        used_rows = set()
-        used_cols = set()
-
-        # Cari zero yang unik
-        zero_positions = np.argwhere(np.isclose(matrix, 0))
-        for row, col in zero_positions:
-            if row not in used_rows and col not in used_cols:
-                assignment.append((row, col))
-                used_rows.add(row)
-                used_cols.add(col)
-        
-        return assignment
-
-    optimal_assignment = find_optimal_assignment(adjusted_matrix)
-    
     steps.append({
-        'title': 'Tabel 7: Penugasan Optimal',
-        'matrix': adjusted_matrix,
-        'assignment': optimal_assignment,
-        'total_value': sum(cost_matrix[row][col] for row, col in optimal_assignment)
+        'title': 'Total Penugasan',
+        'total_value': total_value,
+        'lines': lines
     })
 
     return steps
+
+
 
 def visualize_matrix_with_lines(matrix, lines, row_covered, col_covered):
     """
@@ -175,7 +130,7 @@ def visualize_matrix_with_lines(matrix, lines, row_covered, col_covered):
     return plt
 
 def main():
-    st.title("🔢 Metode Hungarian (Penugasan Optimal)")
+    st.title("🔢 Metode Harian (Penugasan Optimal)")
     
     # Input matriks
     st.subheader("Masukkan Matriks Biaya/Keuntungan")
