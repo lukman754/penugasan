@@ -7,15 +7,9 @@ def maximize_assignment(cost_matrix):
     """
     Menghitung penugasan maksimal dengan mengonversi nilai menjadi minimasi.
     """
-    # Konversi matriks keuntungan menjadi matriks biaya untuk linear_sum_assignment
     profit_matrix = np.max(cost_matrix) - cost_matrix
-    
-    # Lakukan penugasan
     row_ind, col_ind = linear_sum_assignment(profit_matrix)
-    
-    # Hitung total keuntungan
     total_profit = cost_matrix[row_ind, col_ind].sum()
-    
     return row_ind, col_ind, total_profit
 
 def main():
@@ -25,34 +19,42 @@ def main():
     # Pilihan jumlah pekerja dan tugas
     col1, col2 = st.columns(2)
     with col1:
-        num_workers = st.number_input("Jumlah Pekerja", min_value=2, max_value=10, value=3)
+        num_workers = st.slider("Jumlah Pekerja", min_value=2, max_value=10, value=3)
     with col2:
-        num_tasks = st.number_input("Jumlah Tugas", min_value=2, max_value=10, value=3)
+        num_tasks = st.slider("Jumlah Tugas", min_value=2, max_value=10, value=3)
     
     # Membuat matriks keuntungan
     st.subheader("1. Masukkan Matriks Keuntungan")
     st.write("Isi tabel dengan keuntungan masing-masing pekerja untuk setiap tugas.")
     
-    # Inisialisasi matriks keuntungan dengan nol
-    default_matrix = np.zeros((num_workers, num_tasks))
-    
-    # Gunakan data editor untuk input matriks
-    matrix_input = st.data_editor(
-        pd.DataFrame(
-            default_matrix, 
-            columns=[f'Tugas {i+1}' for i in range(num_tasks)],
-            index=[f'Pekerja {i+1}' for i in range(num_workers)]
-        ),
-        num_rows="fixed",
-        num_cols="fixed"
+    # Inisialisasi DataFrame
+    df = pd.DataFrame(
+        np.zeros((num_workers, num_tasks)), 
+        columns=[f'Tugas {i+1}' for i in range(num_tasks)],
+        index=[f'Pekerja {i+1}' for i in range(num_workers)]
     )
     
-    # Konversi input ke numpy array
-    try:
-        cost_matrix = matrix_input.values
-        
-        # Tombol untuk menghitung
-        if st.button("🔢 Hitung Penugasan Maksimal"):
+    # Gunakan session state untuk menyimpan input
+    if 'matrix_input' not in st.session_state:
+        st.session_state.matrix_input = df
+    
+    # Edit DataFrame
+    edited_df = st.data_editor(
+        st.session_state.matrix_input, 
+        num_rows="fixed", 
+        num_cols="fixed",
+        key="profit_matrix"
+    )
+    
+    # Perbarui session state
+    st.session_state.matrix_input = edited_df
+    
+    # Tombol untuk menghitung
+    if st.button("🔢 Hitung Penugasan Maksimal"):
+        # Konversi ke numpy array
+        try:
+            cost_matrix = edited_df.values
+            
             # Validasi input
             if np.any(np.isnan(cost_matrix)):
                 st.error("Pastikan semua sel telah diisi dengan angka!")
@@ -66,19 +68,15 @@ def main():
             
             # Tabel matriks keuntungan asli
             st.write("Matriks Keuntungan Awal:")
-            st.dataframe(pd.DataFrame(
-                cost_matrix, 
-                columns=[f'Tugas {i+1}' for i in range(num_tasks)],
-                index=[f'Pekerja {i+1}' for i in range(num_workers)]
-            ))
+            st.dataframe(edited_df)
             
             # Tampilkan matriks profit (setelah konversi)
             profit_matrix = np.max(cost_matrix) - cost_matrix
             st.write("Matriks Biaya (Konversi untuk Algoritma):")
             st.dataframe(pd.DataFrame(
                 profit_matrix, 
-                columns=[f'Tugas {i+1}' for i in range(num_tasks)],
-                index=[f'Pekerja {i+1}' for i in range(num_workers)]
+                columns=edited_df.columns,
+                index=edited_df.index
             ))
             
             # Hasil penugasan
@@ -98,9 +96,9 @@ def main():
             
             # Total keuntungan
             st.metric("Total Keuntungan Maksimal", f"{total_profit:.2f}")
-    
-    except Exception as e:
-        st.error(f"Terjadi kesalahan: {e}")
+        
+        except Exception as e:
+            st.error(f"Terjadi kesalahan: {e}")
 
 # Jalankan aplikasi
 if __name__ == "__main__":
