@@ -1,57 +1,15 @@
+import streamlit as st
 import numpy as np
 import pandas as pd
-import streamlit as st
+
 
 def hungarian_method(cost_matrix):
     """
-    Implementasi metode Hungarian untuk penugasan optimal dengan resolusi konflik.
-    
-    Args:
-        cost_matrix (list): Matriks biaya/keuntungan
-    
-    Returns:
-        list: Langkah-langkah proses Hungarian method
+    Implementasi metode Hungarian untuk penugasan optimal dengan penyesuaian nol bentrok.
     """
     steps = []
     matrix = np.array(cost_matrix, dtype=float)
     n = matrix.shape[0]
-
-    def find_optimal_assignment(matrix):
-        n = matrix.shape[0]
-        assignment = []
-        used_rows = set()
-        used_cols = set()
-
-        # Temukan posisi zero
-        zero_positions = np.argwhere(np.isclose(matrix, 0))
-        
-        # Urutkan posisi zero untuk prioritas penugasan
-        zero_positions = sorted(
-            zero_positions, 
-            key=lambda x: (np.sum(np.isclose(matrix[x[0]], 0)), x[1])
-        )
-
-        for row, col in zero_positions:
-            # Periksa apakah baris dan kolom belum digunakan
-            if row not in used_rows and col not in used_cols:
-                assignment.append((row, col))
-                used_rows.add(row)
-                used_cols.add(col)
-        
-        # Jika tidak semua baris ditugaskan, selesaikan konflik
-        if len(assignment) < n:
-            unassigned_rows = set(range(n)) - used_rows
-            for row in unassigned_rows:
-                # Temukan zero di baris yang belum ditugaskan
-                row_zeros = np.argwhere(np.isclose(matrix[row], 0)).flatten()
-                for col in row_zeros:
-                    if col not in used_cols:
-                        assignment.append((row, col))
-                        used_rows.add(row)
-                        used_cols.add(col)
-                        break
-
-        return assignment
 
     # Tabel 1: Transformasi Matriks (untuk maksimisasi)
     max_val = np.max(matrix)
@@ -83,20 +41,82 @@ def hungarian_method(cost_matrix):
         'row_mins': row_mins
     })
 
+    # Penyesuaian nol bentrok
+    def adjust_matrix(matrix):
+        n = matrix.shape[0]
+        covered_rows = set()
+        covered_cols = set()
+        while True:
+            zero_positions = np.argwhere(np.isclose(matrix, 0))
+            row_zeros = {r: 0 for r in range(n)}
+            col_zeros = {c: 0 for c in range(n)}
+
+            # Hitung nol di setiap baris dan kolom
+            for r, c in zero_positions:
+                if r not in covered_rows and c not in covered_cols:
+                    row_zeros[r] += 1
+                    col_zeros[c] += 1
+
+            # Periksa apakah ada bentrok (lebih dari 1 nol di baris/kolom)
+            adjustments_needed = False
+            for r, count in row_zeros.items():
+                if count > 1:
+                    adjustments_needed = True
+            for c, count in col_zeros.items():
+                if count > 1:
+                    adjustments_needed = True
+
+            if not adjustments_needed:
+                break
+
+            # Tambahkan garis penutup untuk menyelesaikan bentrok
+            min_uncovered = np.min(matrix[np.isclose(matrix, 0) == False])
+            matrix -= min_uncovered
+            for r in covered_rows:
+                matrix[r, :] += min_uncovered
+            for c in covered_cols:
+                matrix[:, c] -= min_uncovered
+
+        return matrix
+
+    adjusted_matrix = adjust_matrix(row_reduced_matrix)
+
+    steps.append({
+        'title': 'Tabel 4: Penyesuaian Nol Bentrok',
+        'matrix': adjusted_matrix.copy()
+    })
+
     # Penugasan Optimal
-    optimal_assignment = find_optimal_assignment(row_reduced_matrix)
+    def find_optimal_assignment(matrix):
+        n = matrix.shape[0]
+        assignment = []
+        used_rows = set()
+        used_cols = set()
+
+        # Cari zero yang unik
+        zero_positions = np.argwhere(np.isclose(matrix, 0))
+        for row, col in zero_positions:
+            if row not in used_rows and col not in used_cols:
+                assignment.append((row, col))
+                used_rows.add(row)
+                used_cols.add(col)
+        
+        return assignment
+
+    optimal_assignment = find_optimal_assignment(adjusted_matrix)
     
     steps.append({
-        'title': 'Tabel 4: Penugasan Optimal',
-        'matrix': row_reduced_matrix,
+        'title': 'Tabel 5: Penugasan Optimal',
+        'matrix': adjusted_matrix,
         'assignment': optimal_assignment,
         'total_value': sum(cost_matrix[row][col] for row, col in optimal_assignment)
     })
 
     return steps
 
+
 def main():
-    st.title("🔢 Metode Hungarian (Penyelesaian Konflik)")
+    st.title("🔢 Metode Hungarian (Penugasan Optimal)")
     
     # Input matriks
     st.subheader("Masukkan Matriks Biaya/Keuntungan")
@@ -147,7 +167,7 @@ def main():
             if step['title'] == 'Tabel 3: Pengurangan Baris':
                 st.write("Nilai Minimum Baris:", step['row_mins'])
             
-            if step['title'] == 'Tabel 4: Penugasan Optimal':
+            if step['title'] == 'Tabel 5: Penugasan Optimal':
                 # Tampilkan penugasan optimal
                 st.subheader("Hasil Penugasan Optimal")
                 assignment_data = []
