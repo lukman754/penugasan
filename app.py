@@ -6,7 +6,7 @@ import seaborn as sns
 
 def hungarian_method(cost_matrix):
     """
-    Implementasi lengkap metode Hungarian
+    Implementasi lengkap metode Hungarian untuk penugasan optimal.
     """
     steps = []
     matrix = np.array(cost_matrix, dtype=float)
