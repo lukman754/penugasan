@@ -13,76 +13,52 @@ def maximize_assignment(cost_matrix):
     return row_ind, col_ind, total_profit
 
 def main():
-    st.title("📊 Kalkulator Metode Penugasan Maksimal")
-    st.write("Aplikasi ini membantu Anda menentukan penugasan optimal dengan memaksimalkan keuntungan.")
+    st.title("📊 Kalkulator Penugasan Maksimal")
     
-    # Pilihan jumlah pekerja dan tugas
-    col1, col2 = st.columns(2)
-    with col1:
-        num_workers = st.slider("Jumlah Pekerja", min_value=2, max_value=10, value=3)
-    with col2:
-        num_tasks = st.slider("Jumlah Tugas", min_value=2, max_value=10, value=3)
+    # Input dimensi matriks
+    num_workers = st.number_input("Jumlah Pekerja", min_value=2, max_value=10, value=3)
+    num_tasks = st.number_input("Jumlah Tugas", min_value=2, max_value=10, value=3)
     
-    # Membuat matriks keuntungan
-    st.subheader("1. Masukkan Matriks Keuntungan")
-    st.write("Isi tabel dengan keuntungan masing-masing pekerja untuk setiap tugas.")
+    # Membuat matriks input
+    st.subheader("Masukkan Matriks Keuntungan")
     
-    # Inisialisasi DataFrame
-    df = pd.DataFrame(
-        np.zeros((num_workers, num_tasks)), 
-        columns=[f'Tugas {i+1}' for i in range(num_tasks)],
-        index=[f'Pekerja {i+1}' for i in range(num_workers)]
-    )
+    # Inisialisasi matriks kosong
+    matrix = []
+    for i in range(num_workers):
+        row = st.columns(num_tasks)
+        matrix_row = []
+        for j in range(num_tasks):
+            with row[j]:
+                value = st.number_input(
+                    f'Pekerja {i+1} - Tugas {j+1}', 
+                    min_value=0.0, 
+                    value=0.0, 
+                    step=0.1,
+                    key=f'input_{i}_{j}'
+                )
+                matrix_row.append(value)
+        matrix.append(matrix_row)
     
-    # Gunakan session state untuk menyimpan input
-    if 'matrix_input' not in st.session_state:
-        st.session_state.matrix_input = df
+    # Konversi ke numpy array
+    cost_matrix = np.array(matrix)
     
-    # Edit DataFrame
-    edited_df = st.data_editor(
-        st.session_state.matrix_input, 
-        num_rows="fixed", 
-        num_cols="fixed",
-        key="profit_matrix"
-    )
-    
-    # Perbarui session state
-    st.session_state.matrix_input = edited_df
-    
-    # Tombol untuk menghitung
-    if st.button("🔢 Hitung Penugasan Maksimal"):
-        # Konversi ke numpy array
+    # Tombol hitung
+    if st.button("Hitung Penugasan Maksimal"):
         try:
-            cost_matrix = edited_df.values
-            
-            # Validasi input
-            if np.any(np.isnan(cost_matrix)):
-                st.error("Pastikan semua sel telah diisi dengan angka!")
-                return
-            
             # Jalankan algoritma penugasan
             row_ind, col_ind, total_profit = maximize_assignment(cost_matrix)
             
-            # Tampilkan langkah-langkah
-            st.subheader("2. Proses Perhitungan")
+            # Tampilkan matriks keuntungan
+            st.subheader("Matriks Keuntungan")
+            df = pd.DataFrame(
+                cost_matrix, 
+                columns=[f'Tugas {j+1}' for j in range(num_tasks)],
+                index=[f'Pekerja {i+1}' for i in range(num_workers)]
+            )
+            st.dataframe(df)
             
-            # Tabel matriks keuntungan asli
-            st.write("Matriks Keuntungan Awal:")
-            st.dataframe(edited_df)
-            
-            # Tampilkan matriks profit (setelah konversi)
-            profit_matrix = np.max(cost_matrix) - cost_matrix
-            st.write("Matriks Biaya (Konversi untuk Algoritma):")
-            st.dataframe(pd.DataFrame(
-                profit_matrix, 
-                columns=edited_df.columns,
-                index=edited_df.index
-            ))
-            
-            # Hasil penugasan
-            st.subheader("3. Hasil Penugasan Optimal")
-            
-            # Buat tabel hasil
+            # Tampilkan hasil
+            st.subheader("Hasil Penugasan")
             results = []
             for worker, task in zip(row_ind, col_ind):
                 results.append({
