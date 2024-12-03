@@ -50,52 +50,44 @@ def hungarian_method(cost_matrix):
 
     # Tabel 5: Penutupan Garis Optimal
     def cover_zeros(matrix):
-        n = matrix.shape[0]
-        zero_positions = np.argwhere(np.isclose(matrix, 0))
-        
-        # Inisialisasi
-        row_covered = np.zeros(n, dtype=bool)
-        col_covered = np.zeros(n, dtype=bool)
-        lines = []
+    n = matrix.shape[0]
+    zero_positions = np.argwhere(np.isclose(matrix, 0))
+    
+    # Inisialisasi
+    row_covered = np.zeros(n, dtype=bool)
+    col_covered = np.zeros(n, dtype=bool)
+    lines = []
 
-        # Algoritma penugasan zero
-        zero_counts_rows = np.sum(np.isclose(matrix, 0), axis=1)
-        zero_counts_cols = np.sum(np.isclose(matrix, 0), axis=0)
+    # Hitung zero di setiap baris dan kolom
+    zero_counts_rows = np.sum(np.isclose(matrix, 0), axis=1)
+    zero_counts_cols = np.sum(np.isclose(matrix, 0), axis=0)
 
-        # Prioritaskan baris/kolom dengan jumlah zero terbatas
-        while not np.all(row_covered) and not np.all(col_covered):
-            # Cari baris atau kolom dengan zero yang belum tertutup
-            uncovered_zero_rows = np.where((~row_covered) & (zero_counts_rows > 0))[0]
-            uncovered_zero_cols = np.where((~col_covered) & (zero_counts_cols > 0))[0]
+    # Prioritaskan baris/kolom dengan zero
+    while len(lines) < n:
+        # Cari baris atau kolom dengan zero yang belum tertutup
+        uncovered_zero_rows = np.where((~row_covered) & (zero_counts_rows > 0))[0]
+        uncovered_zero_cols = np.where((~col_covered) & (zero_counts_cols > 0))[0]
 
-            if len(uncovered_zero_rows) > 0:
-                # Pilih baris dengan zero yang belum tertutup
-                row = uncovered_zero_rows[0]
+        if uncovered_zero_rows.size > 0:
+            row = uncovered_zero_rows[0]
+            lines.append(('row', row))
+            row_covered[row] = True
+        elif uncovered_zero_cols.size > 0:
+            col = uncovered_zero_cols[0]
+            lines.append(('col', col))
+            col_covered[col] = True
+        else:
+            # Jika tidak ada zero lagi, pilih baris/kolom yang belum tertutup
+            if not np.all(row_covered):
+                row = np.where(~row_covered)[0][0]
                 lines.append(('row', row))
                 row_covered[row] = True
-                
-                # Tandai kolom dengan zero di baris ini
-                for col in np.where(np.isclose(matrix[row], 0))[0]:
-                    if not col_covered[col]:
-                        col_covered[col] = True
-                        lines.append(('col', col))
-            
-            elif len(uncovered_zero_cols) > 0:
-                # Pilih kolom dengan zero yang belum tertutup
-                col = uncovered_zero_cols[0]
+            elif not np.all(col_covered):
+                col = np.where(~col_covered)[0][0]
                 lines.append(('col', col))
                 col_covered[col] = True
-                
-                # Tandai baris dengan zero di kolom ini
-                for row in np.where(np.isclose(matrix[:, col], 0))[0]:
-                    if not row_covered[row]:
-                        row_covered[row] = True
-                        lines.append(('row', row))
-            
-            else:
-                break
 
-        return lines, row_covered, col_covered
+    return lines, row_covered, col_covered
 
     lines, row_covered, col_covered = cover_zeros(row_reduced_matrix)
     
