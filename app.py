@@ -1,6 +1,8 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 def hungarian_method(cost_matrix):
     """
@@ -36,45 +38,77 @@ def hungarian_method(cost_matrix):
         'row_mins': row_mins
     })
 
-    # Tabel 4: Penutupan Garis
-    def cover_zeros(matrix):
-        covered_matrix = matrix.copy()
-        lines = 0
-        zero_positions = []
-
-        # Implementasi logika penutupan garis
-        # (ini adalah implementasi sederhana, bisa dikembangkan lebih lanjut)
-        for i in range(matrix.shape[0]):
-            for j in range(matrix.shape[1]):
-                if np.isclose(matrix[i, j], 0):
-                    zero_positions.append((i, j))
-
-        lines = len(zero_positions)
+    # Tabel 4: Penutupan Garis Optimal
+    def cover_zeros_optimally(matrix):
+        n = matrix.shape[0]
+        zero_positions = np.argwhere(np.isclose(matrix, 0))
         
-        steps.append({
-            'title': 'Tabel 4: Penutupan Garis Awal',
-            'matrix': covered_matrix,
-            'lines': lines,
-            'zero_positions': zero_positions
-        })
+        # Inisialisasi variabel untuk pelacakan
+        row_covered = np.zeros(n, dtype=bool)
+        col_covered = np.zeros(n, dtype=bool)
+        lines = []
 
-        return lines, zero_positions
+        # Coba tutupi zero dengan garis horizontal dan vertikal
+        while len(lines) < n:
+            # Cari baris dengan zero terbanyak yang belum tertutup
+            best_row = -1
+            max_zeros = -1
+            for row in range(n):
+                if not row_covered[row]:
+                    zero_count = np.sum((zero_positions[:, 0] == row) & 
+                                        (~col_covered[zero_positions[:, 1]]))
+                    if zero_count > max_zeros:
+                        max_zeros = zero_count
+                        best_row = row
 
-    lines, zero_positions = cover_zeros(row_reduced_matrix)
+            if best_row == -1:
+                break
 
-    # Tahap selanjutnya: Pengecekan optimasi
-    total_lines = lines
-    optimized = total_lines == n
+            # Tandai baris dan kolom yang sesuai dengan zero
+            row_zeros = zero_positions[
+                (zero_positions[:, 0] == best_row) & 
+                (~col_covered[zero_positions[:, 1]])
+            ]
 
+            if len(row_zeros) > 0:
+                # Pilih kolom pertama
+                col = row_zeros[0, 1]
+                lines.append(('row', best_row))
+                lines.append(('col', col))
+                row_covered[best_row] = True
+                col_covered[col] = True
+
+        return lines, row_covered, col_covered
+
+    # Eksekusi penutupan garis
+    lines, row_covered, col_covered = cover_zeros_optimally(row_reduced_matrix)
+    
     steps.append({
-        'title': 'Tahap Optimasi',
-        'total_lines': total_lines,
-        'matrix_size': n,
-        'optimized': optimized,
-        'zero_positions': zero_positions
+        'title': 'Tabel 4: Penutupan Garis Optimal',
+        'matrix': row_reduced_matrix,
+        'lines': lines,
+        'row_covered': row_covered,
+        'col_covered': col_covered
     })
 
     return steps
+
+def visualize_matrix_with_lines(matrix, lines, row_covered, col_covered):
+    """
+    Visualisasi matriks dengan garis penutup
+    """
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(matrix, annot=True, cmap='YlGnBu', fmt='.2f')
+    
+    # Gambar garis horizontal
+    for line_type, idx in lines:
+        if line_type == 'row':
+            plt.axhline(y=idx+1, color='red', linestyle='--')
+        else:
+            plt.axvline(x=idx+1, color='red', linestyle='--')
+    
+    plt.title('Matriks dengan Garis Penutup')
+    return plt
 
 def main():
     st.title("🔢 Metode Hungarian (Penugasan Optimal)")
@@ -125,15 +159,21 @@ def main():
             if step['title'] == 'Tabel 3: Pengurangan Baris':
                 st.write("Nilai Minimum Baris:", step['row_mins'])
             
-            if step['title'] == 'Tabel 4: Penutupan Garis Awal':
-                st.write("Jumlah Garis:", step['lines'])
-                st.write("Posisi Nol:", step['zero_positions'])
-            
-            if step['title'] == 'Tahap Optimasi':
-                st.write("Jumlah Garis:", step['total_lines'])
-                st.write("Ukuran Matriks:", step['matrix_size'])
-                st.write("Optimasi Tercapai:", step['optimized'])
-                st.write("Posisi Nol:", step['zero_positions'])
+            if step['title'] == 'Tabel 4: Penutupan Garis Optimal':
+                # Tampilkan detail garis
+                st.write("Garis Penutup:")
+                for line_type, idx in step['lines']:
+                    st.write(f"{line_type.capitalize()} {idx+1}")
+                
+                # Visualisasi
+                st.subheader("Visualisasi Garis Penutup")
+                optimal_plot = visualize_matrix_with_lines(
+                    step['matrix'], 
+                    step['lines'], 
+                    step['row_covered'], 
+                    step['col_covered']
+                )
+                st.pyplot(optimal_plot)
 
 if __name__ == "__main__":
     main()
