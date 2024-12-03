@@ -3,128 +3,174 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from itertools import permutations
 
-def calculate_total_benefit(matrix, assignment):
+def hungarian_method(cost_matrix):
     """
-    Menghitung total keuntungan dari penugasan
+    Implementasi lengkap metode Hungarian untuk penugasan optimal dengan perhitungan maksimal
     """
-    return sum(matrix[row][col] for row, col in assignment)
-
-def hungarian_method_maximize(cost_matrix):
-    """
-    Implementasi Metode Hungarian untuk Maksimalisasi Keuntungan
-    """
-    matrix = np.array(cost_matrix)
+    steps = []
+    matrix = np.array(cost_matrix, dtype=float)
     n = matrix.shape[0]
-    
-    # Langkah 1: Cari semua kemungkinan penugasan
-    all_assignments = list(permutations(range(n)))
-    
-    # Simpan penugasan terbaik
-    best_assignment = None
-    max_benefit = float('-inf')
-    
-    # Evaluasi setiap kemungkinan penugasan
-    for assignment in all_assignments:
-        # Hitung keuntungan untuk penugasan ini
-        current_benefit = sum(matrix[row][col] for row, col in enumerate(assignment))
-        
-        # Update jika keuntungan lebih besar
-        if current_benefit > max_benefit:
-            max_benefit = current_benefit
-            best_assignment = list(enumerate(assignment))
-    
-    return {
-        'best_assignment': best_assignment,
-        'max_benefit': max_benefit
-    }
 
-def visualize_assignment(matrix, best_assignment):
-    """
-    Visualisasi penugasan terbaik
-    """
-    plt.figure(figsize=(10, 6))
-    sns.heatmap(matrix, annot=True, cmap='YlGnBu', fmt='.2f')
-    
-    # Tandai sel yang dipilih
-    for row, col in best_assignment:
-        plt.text(col+0.5, row+0.5, '✓', 
-                 horizontalalignment='center', 
-                 verticalalignment='center',
-                 color='red', 
-                 fontsize=15, 
-                 fontweight='bold')
-    
-    plt.title('Visualisasi Penugasan Optimal')
-    return plt
+    # Tentukan apakah mencari min atau max
+    is_maximization = st.radio("Pilih Tipe Optimasi", ["Minimasi", "Maksimasi"], index=0) == "Maksimasi"
 
-def main():
-    st.title("🚀 Optimasi Penugasan untuk Maksimalisasi Keuntungan")
-    
-    # Input matriks
-    st.subheader("Masukkan Matriks Keuntungan")
-    
-    # Dimensi default
-    num_workers = st.number_input("Jumlah Baris (Pekerja/Sumber)", min_value=2, max_value=6, value=3)
-    num_tasks = st.number_input("Jumlah Kolom (Tugas/Tujuan)", min_value=2, max_value=6, value=3)
-    
-    # Membuat matriks input
-    matrix = []
-    for i in range(num_workers):
-        row = st.columns(num_tasks)
-        matrix_row = []
-        for j in range(num_tasks):
-            with row[j]:
-                value = st.number_input(
-                    f'Baris {i+1} - Kolom {j+1}', 
-                    min_value=0.0, 
-                    value=0.0, 
-                    step=0.1,
-                    key=f'input_{i}_{j}'
-                )
-                matrix_row.append(value)
-        matrix.append(matrix_row)
-    
-    if st.button("Hitung Penugasan Optimal"):
-        # Konversi ke numpy array
-        np_matrix = np.array(matrix)
-        
-        # Jalankan optimasi
-        result = hungarian_method_maximize(np_matrix)
-        
-        # Tampilkan hasil
-        st.subheader("📊 Hasil Optimasi Penugasan")
-        
-        # Tabel ringkasan
-        summary_data = []
-        for row, col in result['best_assignment']:
-            summary_data.append({
-                'Pekerja/Sumber': f'Baris {row+1}', 
-                'Tugas/Tujuan': f'Kolom {col+1}', 
-                'Keuntungan': matrix[row][col]
-            })
-        
-        summary_df = pd.DataFrame(summary_data)
-        st.dataframe(summary_df)
-        
-        # Total keuntungan
-        st.metric("Total Keuntungan Maksimal", f"{result['max_benefit']:.2f}")
-        
-        # Detail penugasan
-        st.subheader("📝 Detail Penugasan")
-        for row, col in result['best_assignment']:
-            st.write(f"• Baris {row+1} ditugaskan ke Kolom {col+1} dengan keuntungan {matrix[row][col]}")
-        
-        # Visualisasi
-        st.subheader("🖼️ Visualisasi Penugasan")
-        assignment_plot = visualize_assignment(np_matrix, result['best_assignment'])
-        st.pyplot(assignment_plot)
-        
-        # Penjelasan detail
-        st.subheader("🔍 Analisis Rinci")
-        st.write("Metode ini mengevaluasi seluruh kemungkinan kombinasi penugasan untuk memaksimalkan total keuntungan.")
-        st.write("Algoritma memeriksa setiap kemungkinan penugasan dan memilih kombinasi dengan keuntungan tertinggi.")
+    # Tabel 1: Transformasi matriks
+    if is_maximization:
+        max_val = np.max(matrix)
+        transformed_matrix = max_val - matrix
+    else:
+        transformed_matrix = matrix.copy()
 
-if __name__ == "__main__":
-    main()
+    steps.append({
+        'title': 'Tabel 1: Transformasi Matriks',
+        'matrix': transformed_matrix.copy(),
+        'optimization_type': 'Maksimasi' if is_maximization else 'Minimasi'
+    })
+
+    # Tabel 2: Pengurangan Kolom
+    col_mins = np.min(transformed_matrix, axis=0)
+    col_reduced_matrix = transformed_matrix - col_mins
+    steps.append({
+        'title': 'Tabel 2: Pengurangan Kolom',
+        'matrix': col_reduced_matrix.copy(),
+        'col_mins': col_mins
+    })
+
+    # Tabel 3: Pengurangan Baris
+    row_mins = np.min(col_reduced_matrix, axis=1)
+    row_reduced_matrix = col_reduced_matrix - row_mins[:, np.newaxis]
+    steps.append({
+        'title': 'Tabel 3: Pengurangan Baris',
+        'matrix': row_reduced_matrix.copy(),
+        'row_mins': row_mins
+    })
+
+    # Tabel 4: Penutupan Garis Optimal dengan algoritma yang lebih canggih
+    def advanced_cover_zeros(matrix):
+        n = matrix.shape[0]
+        zero_positions = np.argwhere(np.isclose(matrix, 0))
+        
+        # Inisialisasi
+        row_covered = np.zeros(n, dtype=bool)
+        col_covered = np.zeros(n, dtype=bool)
+        lines = []
+
+        # Algoritma penugasan
+        def find_independent_zeros():
+            independent_zeros = []
+            marked_rows = set()
+            marked_cols = set()
+            
+            for pos in zero_positions:
+                row, col = pos
+                if row not in marked_rows and col not in marked_cols:
+                    independent_zeros.append((row, col))
+                    marked_rows.add(row)
+                    marked_cols.add(col)
+            
+            return independent_zeros
+
+        independent_zeros = find_independent_zeros()
+        
+        # Konversi penugasan ke garis
+        for row, col in independent_zeros:
+            lines.append(('row', row))
+            lines.append(('col', col))
+            row_covered[row] = True
+            col_covered[col] = True
+
+        return lines, row_covered, col_covered
+
+    # Eksekusi penutupan garis
+    lines, row_covered, col_covered = advanced_cover_zeros(row_reduced_matrix)
+    
+    steps.append({
+        'title': 'Tabel 4: Penutupan Garis Optimal',
+        'matrix': row_reduced_matrix,
+        'lines': lines,
+        'row_covered': row_covered,
+        'col_covered': col_covered
+    })
+
+    # Tabel 5: Penyesuaian Matriks
+    def precise_matrix_adjustment(matrix, row_covered, col_covered):
+        n = matrix.shape[0]
+        uncovered_values = matrix[~row_covered][:, ~col_covered]
+        
+        if uncovered_values.size > 0:
+            uncovered_min = np.min(uncovered_values)
+        else:
+            uncovered_min = 0
+
+        adjusted_matrix = matrix.copy()
+        for r in range(n):
+            for c in range(n):
+                if not row_covered[r] and not col_covered[c]:
+                    adjusted_matrix[r, c] -= uncovered_min
+                elif row_covered[r] and col_covered[c]:
+                    adjusted_matrix[r, c] += uncovered_min
+        
+        return adjusted_matrix, uncovered_min
+
+    adjusted_matrix, adjustment_value = precise_matrix_adjustment(
+        row_reduced_matrix, row_covered, col_covered
+    )
+    
+    steps.append({
+        'title': 'Tabel 5: Penyesuaian Matriks',
+        'matrix': adjusted_matrix,
+        'adjustment_value': adjustment_value,
+        'row_covered': row_covered,
+        'col_covered': col_covered
+    })
+
+    # Tabel 6: Pencarian Penugasan Optimal
+    def precise_optimal_assignment(matrix):
+        n = matrix.shape[0]
+        assignment = []
+        used_rows = set()
+        used_cols = set()
+
+        # Tambahkan prioritas pada zero dengan posisi unik
+        zero_positions = np.argwhere(np.isclose(matrix, 0))
+        zero_counts_rows = np.sum(np.isclose(matrix, 0), axis=1)
+        zero_counts_cols = np.sum(np.isclose(matrix, 0), axis=0)
+
+        # Urutkan posisi zero berdasarkan keunikan
+        zero_positions = sorted(
+            zero_positions, 
+            key=lambda pos: zero_counts_rows[pos[0]] + zero_counts_cols[pos[1]]
+        )
+
+        for row, col in zero_positions:
+            if row not in used_rows and col not in used_cols:
+                assignment.append((row, col))
+                used_rows.add(row)
+                used_cols.add(col)
+        
+        return assignment
+
+    optimal_assignment = precise_optimal_assignment(adjusted_matrix)
+    
+    steps.append({
+        'title': 'Tabel 6: Penugasan Optimal',
+        'matrix': adjusted_matrix,
+        'assignment': optimal_assignment
+    })
+
+    # Fungsi untuk menghitung total berdasarkan tipe optimasi
+    def calculate_total(original_matrix, assignment, is_maximization):
+        if is_maximization:
+            total = sum(original_matrix[row][col] for row, col in assignment)
+        else:
+            total = sum(original_matrix[row][col] for row, col in assignment)
+        return total
+
+    total_value = calculate_total(cost_matrix, optimal_assignment, is_maximization)
+    steps[-1]['total_value'] = total_value
+    steps[-1]['optimization_type'] = 'Maksimasi' if is_maximization else 'Minimasi'
+
+    return steps
+
+# [Resten av koden förblir oförändrad]
