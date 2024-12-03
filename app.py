@@ -3,17 +3,48 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import linear_sum_assignment
 
-def maximize_assignment(cost_matrix):
+def step_by_step_assignment(cost_matrix):
     """
-    Menghitung penugasan maksimal dengan mengonversi nilai menjadi minimasi.
+    Menampilkan langkah-langkah perhitungan penugasan maksimal
     """
-    profit_matrix = np.max(cost_matrix) - cost_matrix
+    steps = []
+    
+    # Langkah 1: Matriks Keuntungan Awal
+    steps.append({
+        'judul': 'Matriks Keuntungan Awal',
+        'matriks': cost_matrix.copy()
+    })
+    
+    # Langkah 2: Temukan nilai maksimum
+    max_value = np.max(cost_matrix)
+    steps.append({
+        'judul': 'Nilai Maksimum Matriks',
+        'keterangan': f'Nilai maksimum dalam matriks: {max_value}',
+        'matriks': cost_matrix.copy()
+    })
+    
+    # Langkah 3: Konversi ke matriks biaya
+    profit_matrix = max_value - cost_matrix
+    steps.append({
+        'judul': 'Matriks Biaya (Konversi)',
+        'keterangan': 'Matriks dikonversi dengan mengurangkan setiap elemen dari nilai maksimum',
+        'matriks': profit_matrix
+    })
+    
+    # Langkah 4: Penugasan menggunakan algoritma Hungarian
     row_ind, col_ind = linear_sum_assignment(profit_matrix)
     total_profit = cost_matrix[row_ind, col_ind].sum()
-    return row_ind, col_ind, total_profit
+    
+    steps.append({
+        'judul': 'Hasil Penugasan Optimal',
+        'keterangan': f'Total Keuntungan: {total_profit}',
+        'penugasan': list(zip(row_ind, col_ind))
+    })
+    
+    return steps, row_ind, col_ind, total_profit
 
 def main():
-    st.title("📊 Kalkulator Penugasan Maksimal")
+    st.title("📊 Kalkulator Penugasan Maksimal dengan Langkah Detail")
     
     # Input dimensi matriks
     num_workers = st.number_input("Jumlah Pekerja", min_value=2, max_value=10, value=3)
@@ -45,30 +76,38 @@ def main():
     # Tombol hitung
     if st.button("Hitung Penugasan Maksimal"):
         try:
-            # Jalankan algoritma penugasan
-            row_ind, col_ind, total_profit = maximize_assignment(cost_matrix)
+            # Jalankan algoritma penugasan dengan langkah detail
+            steps, row_ind, col_ind, total_profit = step_by_step_assignment(cost_matrix)
             
-            # Tampilkan matriks keuntungan
-            st.subheader("Matriks Keuntungan")
-            df = pd.DataFrame(
-                cost_matrix, 
-                columns=[f'Tugas {j+1}' for j in range(num_tasks)],
-                index=[f'Pekerja {i+1}' for i in range(num_workers)]
-            )
-            st.dataframe(df)
-            
-            # Tampilkan hasil
-            st.subheader("Hasil Penugasan")
-            results = []
-            for worker, task in zip(row_ind, col_ind):
-                results.append({
-                    'Pekerja': f'Pekerja {worker + 1}', 
-                    'Tugas': f'Tugas {task + 1}', 
-                    'Keuntungan': cost_matrix[worker, task]
-                })
-            
-            results_df = pd.DataFrame(results)
-            st.dataframe(results_df)
+            # Tampilkan setiap langkah
+            for i, step in enumerate(steps, 1):
+                st.subheader(f"Langkah {i}: {step['judul']}")
+                
+                # Tampilkan keterangan jika ada
+                if 'keterangan' in step:
+                    st.write(step['keterangan'])
+                
+                # Tampilkan matriks jika ada
+                if 'matriks' in step:
+                    df = pd.DataFrame(
+                        step['matriks'], 
+                        columns=[f'Tugas {j+1}' for j in range(num_tasks)],
+                        index=[f'Pekerja {i+1}' for i in range(num_workers)]
+                    )
+                    st.dataframe(df)
+                
+                # Tampilkan penugasan jika ada
+                if 'penugasan' in step:
+                    results = []
+                    for worker, task in step['penugasan']:
+                        results.append({
+                            'Pekerja': f'Pekerja {worker + 1}', 
+                            'Tugas': f'Tugas {task + 1}', 
+                            'Keuntungan': cost_matrix[worker, task]
+                        })
+                    
+                    results_df = pd.DataFrame(results)
+                    st.dataframe(results_df)
             
             # Total keuntungan
             st.metric("Total Keuntungan Maksimal", f"{total_profit:.2f}")
