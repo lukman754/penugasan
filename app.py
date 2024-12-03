@@ -173,4 +173,107 @@ def hungarian_method(cost_matrix):
 
     return steps
 
-# [Resten av koden förblir oförändrad]
+def visualize_matrix_with_lines(matrix, lines, row_covered, col_covered):
+    """
+    Visualisasi matriks dengan garis penutup
+    """
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(matrix, annot=True, cmap='YlGnBu', fmt='.2f')
+    
+    # Gambar garis horizontal
+    for line_type, idx in lines:
+        if line_type == 'row':
+            plt.axhline(y=idx+1, color='red', linestyle='--')
+        else:
+            plt.axvline(x=idx+1, color='red', linestyle='--')
+    
+    plt.title('Matriks dengan Garis Penutup')
+    return plt
+
+def main():
+    st.title("🔢 Metode Hungarian (Penugasan Optimal)")
+    
+    # Input matriks
+    st.subheader("Masukkan Matriks Biaya/Keuntungan")
+    
+    # Dimensi default
+    num_workers = st.number_input("Jumlah Baris", min_value=2, max_value=10, value=3)
+    num_tasks = st.number_input("Jumlah Kolom", min_value=2, max_value=10, value=3)
+    
+    # Membuat matriks input
+    matrix = []
+    for i in range(num_workers):
+        row = st.columns(num_tasks)
+        matrix_row = []
+        for j in range(num_tasks):
+            with row[j]:
+                value = st.number_input(
+                    f'Baris {i+1} - Kolom {j+1}', 
+                    min_value=0.0, 
+                    value=0.0, 
+                    step=0.1,
+                    key=f'input_{i}_{j}'
+                )
+                matrix_row.append(value)
+        matrix.append(matrix_row)
+    
+    if st.button("Hitung Penugasan Optimal"):
+        steps = hungarian_method(matrix)
+        
+        for step in steps:
+            st.subheader(step['title'])
+            
+            # Tampilkan matriks
+            if 'matrix' in step:
+                df = pd.DataFrame(
+                    step['matrix'], 
+                    columns=[f'Kolom {j+1}' for j in range(step['matrix'].shape[1])],
+                    index=[f'Baris {i+1}' for i in range(step['matrix'].shape[0])]
+                )
+                st.dataframe(df)
+            
+            # Tampilkan informasi tambahan
+            if step['title'] == 'Tabel 1: Transformasi Matriks':
+                st.write(f"Tipe Optimasi: {step['optimization_type']}")
+            
+            if step['title'] == 'Tabel 2: Pengurangan Kolom':
+                st.write("Nilai Minimum Kolom:", step['col_mins'])
+            
+            if step['title'] == 'Tabel 3: Pengurangan Baris':
+                st.write("Nilai Minimum Baris:", step['row_mins'])
+            
+            if step['title'] == 'Tabel 4: Penutupan Garis Optimal':
+                # Tampilkan detail garis
+                st.write("Garis Penutup:")
+                for line_type, idx in step['lines']:
+                    st.write(f"{line_type.capitalize()} {idx+1}")
+                
+                # Visualisasi
+                st.subheader("Visualisasi Garis Penutup")
+                optimal_plot = visualize_matrix_with_lines(
+                    step['matrix'], 
+                    step['lines'], 
+                    step['row_covered'], 
+                    step['col_covered']
+                )
+                st.pyplot(optimal_plot)
+            
+            if step['title'] == 'Tabel 5: Penyesuaian Matriks':
+                st.write(f"Nilai Penyesuaian: {step['adjustment_value']}")
+            
+            if step['title'] == 'Tabel 6: Penugasan Optimal':
+                # Tampilkan penugasan optimal
+                st.subheader("Hasil Penugasan Optimal")
+                assignment_text = []
+                for row, col in step['assignment']:
+                    assignment_text.append(f"Baris {row+1} → Kolom {col+1}")
+                    st.write(f"Baris {row+1} ditugaskan ke Kolom {col+1} (Nilai: {matrix[row][col]})")
+                
+                # Tampilkan total nilai
+                st.subheader("Ringkasan")
+                st.write(f"Tipe Optimasi: {step['optimization_type']}")
+                st.write(f"Total Nilai: {step['total_value']}")
+                st.success(" | ".join(assignment_text))
+
+if __name__ == "__main__":
+    main()
